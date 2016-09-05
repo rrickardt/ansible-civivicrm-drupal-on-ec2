@@ -1,0 +1,18 @@
+ - name: Create RDS database in AWS 
+   local_action:
+     tags: rds
+     module: rds
+     region: us-west-2
+     command: create
+     instance_name: drupal
+     db_engine: MySQL
+     size: 5
+     instance_type: db.t2.micro
+     username: compucorp
+     password: compucorp
+     parameter_group: compucorp-mysql
+     vpc_security_groups: sg-6a19fc13
+     publicly_accessible: no
+     wait: yes
+     db_name: drupal
+     backup_retention: 7

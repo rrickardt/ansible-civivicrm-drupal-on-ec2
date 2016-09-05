@@ -1,0 +1,97 @@
+- name: Update cache and packages 
+  apt: upgrade=dist update_cache=yes
+
+- name: Install packages
+  apt: name=nginx,nginx-extras,php5-fpm,php5,git,drush,tcpdump,curl,telnet,iputils-ping,unattended-upgrades,policycoreutils,selinux,drupal7,apache2-utils,python-mysqldb,php5-curl,awscli state=latest update_cache=yes
+
+- name: Remove old nginx configuration
+  file: path=/etc/nginx state=absent
+
+- name: Download new nginx configuration
+  git: repo=https://github.com/perusio/drupal-with-nginx.git dest=/etc/nginx
+
+- name: Create nginx sites-enabled directory
+  file: path=/etc/nginx/sites-enabled state=directory
+
+- name: Upload nginx configuration
+  copy: src=compucorp.axfr.org.conf dest=/etc/nginx/sites-enabled/compucorp.axfr.org.conf owner=root group=root mode=0644
+
+- name: Upload civicrm specific configuration
+  copy: src=drupal.conf dest=/etc/nginx/apps/drupal/drupal.conf owner=root group=root mode=0644
+
+- name: Upload nginx-phpfpm config
+  copy: src=upstream_phpcgi_tcp.conf dest=/etc/nginx/upstream_phpcgi_tcp.conf owner=root group=root mode=0644
+
+- name: make php-fpm listen on localhost port
+  lineinfile: dest=/etc/php5/fpm/pool.d/www.conf regexp="^listen =.*$" line="listen = 127.0.0.1:9001"
+
+- name: Create cache directory for nginx
+  file: path=/var/cache/nginx/ state=directory owner=www-data group=www-data
+
+- name: Create private_files directory for drupal
+  file: path=/var/lib/drupal7/private_files state=directory owner=www-data group=www-data
+
+- name: Set private files dir
+  command: drush -r /usr/share/drupal7 vset --yes file_private_path /var/lib/drupal7/private_files
+
+- name: Set default scheme to private
+  command: drush -r /usr/share/drupal7 vset --yes file_default_scheme private
+
+- name: Install ctools
+  command: drush -r /usr/share/drupal7 pm-download ctools
+
+- name: Enable ctools
+  command: drush -r /usr/share/drupal7 pm-enable ctools -y
+
+- name: Install Views3
+  command: drush -r /usr/share/drupal7 pm-download views
+
+- name: Enable Views
+  command: drush -r /usr/share/drupal7 pm-enable views -y
+
+- name: Install Backup
+  command: drush -r /usr/share/drupal7 pm-download backup_migrate
+
+- name: Enable Backup
+  command: drush -r /usr/share/drupal7 pm-enable backup_migrate -y
+
+- name: Download CiviCRM
+  get_url:
+    url: https://download.civicrm.org/civicrm-4.7.10-drupal.tar.gz
+    dest: /usr/share/drupal7/sites/default/modules
+
+- name: Extract CiviCRM
+  unarchive: src=/usr/share/drupal7/sites/default/modules/civicrm-4.7.10-drupal.tar.gz
+    dest=/usr/share/drupal7/sites/default/modules/ copy=no
+
+- name: Copy sql script to set up CiviCRM database
+  copy: src=db.sql dest=/root/db.sql
+
+- name: Import SQL script
+  mysql_db: state=import name=all target=/root/db.sql
+
+- name: Modify /etc/my.cnf to allow triggers for non-privileged users
+  lineinfile: dest=/etc/mysql/my.cnf insertafter="skip-external-locking" line="log-bin-trust-function-creators = 1"
+
+- name: Upload Views-CiviCRM settings.php
+  copy: src=settings.php dest=/usr/share/drupal7/sites/default/settings.php
+
+- name: Upload cron job to backup to S3
+  copy: src=backup dest=/etc/cron.daily/backup owner=root group=root mode=0755
+
+- name: Download ACME client for letsencrypt
+  git: repo=https://github.com/Neilpang/acme.sh.git dest=/root/acme/
+
+- name: Get LE certificates
+  command: /root/acme/acme.sh --issue --tls --standalone -d compucorp.axfr.org --certpath /etc/ssl/private/cert.pem --keypath /etc/ssl/private/key.pem --capath /etc/ssl/private/ca.pem --fullchainpath /etc/ssl/private/chain.pem
+
+- name: Restart nginx
+  service: name=nginx state=restarted
+
+- name: Restart php-fpm
+  service: name=php5-fpm state=restarted
+
+- name: Restart mysqld
+  service: name=mysql state=restarted
+
+

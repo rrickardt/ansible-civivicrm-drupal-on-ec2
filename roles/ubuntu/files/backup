@@ -1,0 +1,4 @@
+#!/bin/sh
+mysqldump -A > /root/backups/db.$(date +%F).sql 2> /dev/null
+tar czfh /root/backups/drupal.$(date +%F).tar.gz /usr/share/drupal7 2> /dev/null
+aws s3 sync /root/backups/ s3://drplbckup

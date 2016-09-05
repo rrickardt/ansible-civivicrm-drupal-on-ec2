@@ -1,0 +1,10 @@
+- hosts: all
+  become: yes
+  roles:
+    - ubuntu
+
+- hosts: local
+  become: no
+  roles:
+    - rds
+    - ec2
