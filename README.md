@@ -6,5 +6,4 @@ ec2.py works as a dynamic inventory script.
 
 ansible-playbook -i hosts all.yml -u localuser -k --tags="ec2" --limit=local -K 
  
-ansible-playbook -i ec2.py all.yml  -u ubuntu --ssh-common-args='-i <key_to_access_instance.pem' 
-# ansible-civivicrm-drupal-on-ec2
+ansible-playbook -i ec2.py all.yml  -u ubuntu --ssh-common-args='-i <key_to_access_instance.pem>'
